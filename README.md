@@ -1,3 +1,3 @@
-# todocli-go
+# todocli
 
 [Design](./doc/design.md)

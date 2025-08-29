@@ -1,4 +1,4 @@
-module github.com/jmaeagle99/todocli-go
+module github.com/jmaeagle99/todocli
 
 go 1.24.3
 

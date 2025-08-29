@@ -19,10 +19,10 @@
 ## Commands
 
 - `add` command
-  - `todocli-go add <name>`
+  - `todocli add <name>`
 - `list` command
-  - `todocli-go list`
+  - `todocli list`
 - `edit` command
-  - `todocli-go edit <id> <name>`
+  - `todocli edit <id> <name>`
 - `remove` command
-  - `todocli-go remove <id>`
+  - `todocli remove <id>`
