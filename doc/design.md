@@ -11,6 +11,18 @@
 - Task
   - Id: integer
   - Name: string
-  - Description: string
+  - CreatedDate: datetime
   - DueDate: datetime
-  - State: [ Pending, InProgress, Completed, Abandoned ]
+  - Priority: number
+  - State: [ NotStarted, InProgress, Completed, Abandoned ]
+
+## Commands
+
+- `add` command
+  - `todocli-go add <name>`
+- `list` command
+  - `todocli-go list`
+- `edit` command
+  - `todocli-go edit <id> <name>`
+- `remove` command
+  - `todocli-go remove <id>`
