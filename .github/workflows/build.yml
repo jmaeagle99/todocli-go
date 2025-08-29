@@ -11,6 +11,10 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+
+    env:
+      srcDirectory: ./src
+
     steps:
     - uses: actions/checkout@v4
 
@@ -21,13 +25,15 @@ jobs:
 
     - name: Build
       run: go build
+      working-directory: ${{env.srcDirectory}}
 
     - name: Test
       run: go test -json > testresults.json
+      working-directory: ${{env.srcDirectory}}
 
     - name: Upload Results
       uses: actions/upload-artifact@v4
       with:
         name: TestResults
-        path: testresults.json
+        path: ${{env.srcDirectory}}/testresults.json
         retention-days: 7
