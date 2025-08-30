@@ -6,6 +6,8 @@ package add
 import (
 	"fmt"
 
+	"github.com/jmaeagle99/todocli/store"
+	"github.com/jmaeagle99/todocli/todo"
 	"github.com/spf13/cobra"
 )
 
@@ -15,8 +17,13 @@ func NewCommand() *cobra.Command {
 		Use:   "add",
 		Short: "Add a TODO item.",
 		Long:  `Add a TODO item with a name.`,
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Println("add called")
+			store, err := store.CreateStore[todo.Todo]()
+			if nil != err {
+				return err
+			}
+			return store.AddItem(todo.Todo{Name: args[0]})
 		},
 	}
 	return addCmd
