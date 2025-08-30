@@ -2,18 +2,20 @@ package store
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 )
 
 type Store[T any] struct {
-	nextId   int
-	rootPath string
+	rootPath        string
+	requestChannel  chan int32
+	responseChannel chan int32
 }
 
 type StoreIndex struct {
-	NextId int `json:"nextId"`
+	LastId int32 `json:"lastId"`
 }
 
 // Creates a data store backed by files on disk
@@ -24,67 +26,78 @@ func CreateStore[T any]() (*Store[T], error) {
 	}
 
 	todopath := filepath.Join(userPath, ".todocli")
-	err = os.MkdirAll(todopath, 0644)
+	err = os.MkdirAll(todopath, 0755)
 	if nil != err {
 		return nil, err
 	}
 
-	var nextId = 1
-	indexpath := filepath.Join(todopath, "index.json")
-	if _, err = os.Stat(indexpath); nil == err {
-		indexFile, err := os.OpenFile(indexpath, os.O_RDONLY, 0644)
-		if nil != err {
-			return nil, err
-		}
-		defer indexFile.Close()
-
-		var index StoreIndex
-		decoder := json.NewDecoder(indexFile)
-		err = decoder.Decode(&index)
-		if nil != err {
-			return nil, err
-		}
-		nextId = index.NextId
-	}
-
 	store := &Store[T]{
-		rootPath: todopath,
-		nextId:   nextId,
+		rootPath:        todopath,
+		requestChannel:  make(chan int32, 5),
+		responseChannel: make(chan int32, 5),
 	}
+
+	go store.indexWorker()
 
 	return store, nil
 }
 
-func (store *Store[T]) writeIndex() error {
+func (store *Store[T]) indexWorker() {
+	defer close(store.responseChannel)
+
 	indexpath := filepath.Join(store.rootPath, "index.json")
-	indexFile, err := os.OpenFile(indexpath, os.O_CREATE|os.O_WRONLY, 0644)
+	indexFile, err := os.OpenFile(indexpath, os.O_CREATE|os.O_RDWR, 0644)
 	if nil != err {
-		return err
+		return
 	}
 	defer indexFile.Close()
 
-	index := StoreIndex{NextId: store.nextId}
+	var index StoreIndex
+	decoder := json.NewDecoder(indexFile)
+	err = decoder.Decode(&index)
 
-	encoder := json.NewEncoder(indexFile)
-	return encoder.Encode(index)
+	var lastId int32 = 0
+	if nil == err {
+		lastId = index.LastId
+	}
+
+	for range store.requestChannel {
+		lastId++
+		store.responseChannel <- lastId
+
+		indexFile.Truncate(0)
+		indexFile.Seek(0, 0)
+
+		index.LastId = lastId
+		encoder := json.NewEncoder(indexFile)
+		err = encoder.Encode(index)
+		if err == nil {
+			return
+		}
+	}
 }
 
-func (store *Store[T]) AddItem(item T) error {
-	fileName := fmt.Sprintf("%d.json", store.nextId)
-	filePath := filepath.Join(store.rootPath, fileName)
-
-	store.nextId++
-	err := store.writeIndex()
-	if nil != err {
-		return err
+func (store *Store[T]) Add(item T) (int32, error) {
+	store.requestChannel <- 1
+	id, valid := <-store.responseChannel
+	if !valid {
+		return 0, errors.New("Store is closed")
 	}
+
+	fileName := fmt.Sprintf("%d.json", id)
+	filePath := filepath.Join(store.rootPath, fileName)
 
 	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
 	if nil != err {
-		return err
+		return 0, err
 	}
 	defer file.Close()
 
 	encoder := json.NewEncoder(file)
-	return encoder.Encode(item)
+	return id, encoder.Encode(item)
+}
+
+func (store *Store[T]) Close() error {
+	close(store.requestChannel)
+	return nil
 }
