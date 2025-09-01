@@ -50,7 +50,9 @@ func (store *Store[T]) indexWorker() {
 	if nil != err {
 		return
 	}
-	defer indexFile.Close()
+	defer func() {
+		_ = indexFile.Close()
+	}()
 
 	var index StoreIndex
 	decoder := json.NewDecoder(indexFile)
@@ -65,8 +67,12 @@ func (store *Store[T]) indexWorker() {
 		lastId++
 		store.responseChannel <- lastId
 
-		indexFile.Truncate(0)
-		indexFile.Seek(0, 0)
+		if err = indexFile.Truncate(0); err != nil {
+			return
+		}
+		if _, err = indexFile.Seek(0, 0); err != nil {
+			return
+		}
 
 		index.LastId = lastId
 		encoder := json.NewEncoder(indexFile)
@@ -77,11 +83,13 @@ func (store *Store[T]) indexWorker() {
 	}
 }
 
-func (store *Store[T]) Add(item T) (int32, error) {
+func (store *Store[T]) Add(item T) (id int32, err error) {
 	store.requestChannel <- 1
 	id, valid := <-store.responseChannel
 	if !valid {
-		return 0, errors.New("Store is closed")
+		id = 0
+		err = errors.New("Store is closed")
+		return
 	}
 
 	fileName := fmt.Sprintf("%d.json", id)
@@ -89,12 +97,16 @@ func (store *Store[T]) Add(item T) (int32, error) {
 
 	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
 	if nil != err {
-		return 0, err
+		id = 0
+		return
 	}
-	defer file.Close()
+	defer func() {
+		err = errors.Join(err, file.Close())
+	}()
 
 	encoder := json.NewEncoder(file)
-	return id, encoder.Encode(item)
+	err = encoder.Encode(item)
+	return
 }
 
 func (store *Store[T]) Close() error {

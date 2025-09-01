@@ -4,6 +4,8 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package add
 
 import (
+	"errors"
+
 	"github.com/jmaeagle99/todocli/store"
 	"github.com/jmaeagle99/todocli/todo"
 	"github.com/spf13/cobra"
@@ -15,16 +17,18 @@ func NewCommand() *cobra.Command {
 		Use:   "add",
 		Short: "Add a TODO item.",
 		Long:  `Add a TODO item with a name.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			store, err := store.CreateStore[todo.Todo]()
 			if nil != err {
 				return err
 			}
-			defer store.Close()
+			defer func() {
+				err = errors.Join(err, store.Close())
+			}()
 
 			_, err = store.Add(todo.Todo{Name: args[0]})
 
-			return err
+			return
 		},
 	}
 	return addCmd
