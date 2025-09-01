@@ -13,6 +13,8 @@ import (
 
 // addCmd represents the add command
 func NewCommand() *cobra.Command {
+	var name string
+
 	var addCmd = &cobra.Command{
 		Use:   "add",
 		Short: "Add a TODO item.",
@@ -26,10 +28,14 @@ func NewCommand() *cobra.Command {
 				err = errors.Join(err, store.Close())
 			}()
 
-			_, err = store.Add(todo.Todo{Name: args[0]})
+			_, err = store.Add(todo.Todo{Name: name})
 
 			return
 		},
 	}
+
+	addCmd.Flags().StringVarP(&name, "name", "n", "", "Name of TODO item.")
+	addCmd.MarkFlagRequired("name")
+
 	return addCmd
 }
